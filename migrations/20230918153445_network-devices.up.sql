@@ -1,0 +1,8 @@
+-- Add up migration script here
+CREATE TABLE IF NOT EXISTS devices(
+    id UUID PRIMARY KEY UNIQUE NOT NULL,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    ip VARCHAR(15) NOT NULL,
+    mac VARCHAR(17) NOT NULL,
+    status BOOLEAN NOT NULL
+);

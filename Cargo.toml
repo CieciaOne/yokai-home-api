@@ -1,0 +1,26 @@
+[package]
+name = "yokai-home-api"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+lto = true
+
+[dependencies]
+actix-web = "4.4.0"
+anyhow = "1.0.75"
+chrono = { version = "0.4.31", features = ["serde"] }
+dotenv = "0.15.0"
+env_logger = "0.10.0"
+log = "0.4.20"
+reqwest = "0.11.20"
+rss = { version = "2.0.6", features = ["serde"] }
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.107"
+sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio", "macros", "runtime-tokio-native-tls", "uuid", "chrono"] }
+surge-ping = "0.8.0"
+tokio = { version = "1.32.0", features = ["full"] }
+uuid = { version = "1.4.1", features = ["v4", "serde"] }
+wol-rs = "1.0.1"

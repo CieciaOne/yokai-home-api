@@ -1,0 +1,6 @@
+-- Add up migration script here
+CREATE TABLE IF NOT EXISTS channels (
+    id UUID PRIMARY KEY UNIQUE NOT NULL,
+    name VARCHAR UNIQUE NOT NULL,
+    url VARCHAR UNIQUE NOT NULL
+);
