@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    common::ChannelMap,
+    common::{Channel as YChannel, ChannelMap, Item},
     feed::{model::ChannelModel, schema::CreateChannelSchema},
     SharedState,
 };
@@ -22,18 +22,32 @@ async fn read_one(id: web::Path<Uuid>, data: web::Data<SharedState>) -> Result<i
     )
     .fetch_one(db)
     .await
-    .map_err(|err| ErrorInternalServerError(err))?;
+    .map_err(ErrorInternalServerError)?;
 
     let mut store: ChannelMap = HashMap::new();
     let channel_update = reqwest::get(channel.url)
         .await
-        .map_err(|err| ErrorInternalServerError(err))?
+        .map_err(ErrorInternalServerError)?
         .bytes()
         .await
-        .map_err(|err| ErrorInternalServerError(err))?;
-    let new_channel =
-        Channel::read_from(&channel_update[..]).map_err(|err| ErrorInternalServerError(err))?;
-    store.insert(channel.id, new_channel);
+        .map_err(ErrorInternalServerError)?;
+    let new_channel = Channel::read_from(&channel_update[..]).map_err(ErrorInternalServerError)?;
+    let items = new_channel
+        .items
+        .iter()
+        .map(|item| {
+            Item::new(
+                item.title.to_owned(),
+                item.link.to_owned(),
+                item.description.to_owned(),
+                item.author.to_owned(),
+            )
+        })
+        .collect();
+    store.insert(
+        channel.id,
+        YChannel::new(new_channel.title, new_channel.link, items),
+    );
     Ok(HttpResponse::Ok().json(store))
 }
 
@@ -49,13 +63,28 @@ async fn read_feed(data: web::Data<SharedState>) -> Result<impl Responder> {
             for channel in db_channels_result {
                 let channel_update = reqwest::get(channel.url)
                     .await
-                    .map_err(|err| ErrorInternalServerError(err))?
+                    .map_err(ErrorInternalServerError)?
                     .bytes()
                     .await
-                    .map_err(|err| ErrorInternalServerError(err))?;
-                let new_channel = Channel::read_from(&channel_update[..])
-                    .map_err(|err| ErrorInternalServerError(err))?;
-                store.insert(channel.id, new_channel);
+                    .map_err(ErrorInternalServerError)?;
+                let new_channel =
+                    Channel::read_from(&channel_update[..]).map_err(ErrorInternalServerError)?;
+                let items = new_channel
+                    .items
+                    .iter()
+                    .map(|item| {
+                        Item::new(
+                            item.title.to_owned(),
+                            item.link.to_owned(),
+                            item.description.to_owned(),
+                            item.author.to_owned(),
+                        )
+                    })
+                    .collect();
+                store.insert(
+                    channel.id,
+                    YChannel::new(new_channel.title, new_channel.link, items),
+                );
             }
             Ok(HttpResponse::Ok().json(store))
         }

@@ -8,6 +8,7 @@ use crate::articles::service::articles_config;
 use crate::feed::service::feed_config;
 use crate::network::service::network_config;
 use crate::network::status_monitor::StatusMonitor;
+use actix_cors::Cors;
 use actix_web::{middleware::Logger, web::Data, App, HttpServer};
 use anyhow::Result;
 use common::Db;
@@ -63,12 +64,14 @@ async fn main() -> Result<()> {
     });
 
     HttpServer::new(move || {
+        let cors = Cors::permissive();
         App::new()
             .app_data(Data::new(SharedState { db: pool.clone() }))
             .configure(network_config)
             .configure(articles_config)
             .configure(feed_config)
             .wrap(Logger::default())
+            .wrap(cors)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

@@ -4,7 +4,7 @@ use crate::{
     network::{model::DeviceModel, schema::CreateDeviceSchema},
     SharedState,
 };
-use actix_web::{delete, get, post, put, web, HttpResponse, Responder, Result};
+use actix_web::{error::ErrorInternalServerError,delete, get, post, put, web, HttpResponse, Responder, Result};
 use log::{error, info};
 use uuid::Uuid;
 use wol::MacAddr;
@@ -115,9 +115,9 @@ async fn wake_device(id: web::Path<Uuid>, data: web::Data<SharedState>) -> Resul
     {
         Ok(device) => {
             let mac = MacAddr::from_str(&device.mac)
-                .map_err(|err| actix_web::error::ErrorInternalServerError(err))?;
+                .map_err(ErrorInternalServerError)?;
             wol::send_wol(mac, None, None)
-                .map_err(|err| actix_web::error::ErrorInternalServerError(err))?;
+                .map_err(ErrorInternalServerError)?;
 
             Ok(HttpResponse::Ok().json(device))
         }
