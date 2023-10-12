@@ -2,7 +2,6 @@ mod articles;
 mod common;
 mod feed;
 mod network;
-use core::result::Result::{Err, Ok};
 use std::collections::HashMap;
 
 use crate::articles::service::articles_config;

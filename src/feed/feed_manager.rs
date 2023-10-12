@@ -3,8 +3,8 @@ use crate::{
     feed::model::ChannelModel,
 };
 
-use anyhow::{Ok, Result};
-use log::info;
+use anyhow::Result;
+use log::{info, warn};
 use rss::Channel as RssChannel;
 use std::time::Duration;
 use tokio::time::interval;
@@ -36,23 +36,26 @@ impl FeedManager {
                 .await?;
 
             for channel in channels {
-                self.refresh(channel).await?;
+                match get(&channel).await {
+                    Ok(data) => {
+                        self.store.lock().await.insert(channel.id, data);
+                    }
+                    Err(e) => {
+                        warn!("{}", e);
+                    }
+                };
             }
         }
     }
+}
 
-    async fn refresh(&mut self, channel: ChannelModel) -> Result<()> {
-        let channel_update = reqwest::get(channel.url).await?.bytes().await?;
-        let new_channel = RssChannel::read_from(&channel_update[..])?;
-        let items = new_channel
-            .items
-            .iter()
-            .map(|item| Item::new(item.title.to_owned(), item.link.to_owned()))
-            .collect();
-        self.store.lock().await.insert(
-            channel.id,
-            Channel::new(new_channel.title, new_channel.link, items),
-        );
-        Ok(())
-    }
+async fn get(channel: &ChannelModel) -> Result<Channel> {
+    let channel_update = reqwest::get(&channel.url).await?.bytes().await?;
+    let new_channel = RssChannel::read_from(&channel_update[..])?;
+    let items = new_channel
+        .items
+        .iter()
+        .map(|item| Item::new(item.title.to_owned(), item.link.to_owned()))
+        .collect();
+    Ok(Channel::new(new_channel.title, new_channel.link, items))
 }

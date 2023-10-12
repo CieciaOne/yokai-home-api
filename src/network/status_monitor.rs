@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::model::DeviceModel;
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use log::{info, warn};
 use std::{net::IpAddr, time::Duration};
 use tokio::time::interval;
@@ -35,7 +35,7 @@ impl StatusMonitor {
             for dev in devices {
                 let ip = dev.ip.parse::<IpAddr>()?;
                 match surge_ping::ping(ip, &payload).await {
-                    core::result::Result::Ok(_) => {
+                    Ok(_) => {
                         if !dev.status {
                             self.set_device_state(&dev, ONLINE).await?;
                         }
@@ -61,7 +61,7 @@ impl StatusMonitor {
         .execute(db)
         .await
         {
-            core::result::Result::Ok(_) => {
+            Ok(_) => {
                 let state_repr = match state {
                     true => "Online",
                     false => "Offline",
