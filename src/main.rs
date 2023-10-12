@@ -3,6 +3,7 @@ mod common;
 mod feed;
 mod network;
 use core::result::Result::{Err, Ok};
+use std::collections::HashMap;
 
 use crate::articles::service::articles_config;
 use crate::feed::service::feed_config;
@@ -11,8 +12,9 @@ use crate::network::status_monitor::StatusMonitor;
 use actix_cors::Cors;
 use actix_web::{middleware::Logger, web::Data, App, HttpServer};
 use anyhow::Result;
-use common::Db;
+use common::{Db, Store};
 use dotenv::dotenv;
+use feed::feed_manager::FeedManager;
 use log::{error, info};
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
@@ -22,6 +24,7 @@ use tokio::sync::Mutex;
 #[derive(Clone)]
 pub struct SharedState {
     db: Db,
+    store: Store,
 }
 
 #[tokio::main]
@@ -36,6 +39,11 @@ async fn main() -> Result<()> {
     let network_scan_interval = Duration::from_secs(
         std::env::var("NETWORK_SCAN_INTERVAL")
             .expect("NETWORK_SCAN_INTERVAL must be set(unit is seconds)")
+            .parse::<u64>()?,
+    );
+    let feed_refresh_interval = Duration::from_secs(
+        std::env::var("FEED_REFRESH_INTERVAL")
+            .expect("FEED_REFRESH_INTERVAL must be set(unit is seconds)")
             .parse::<u64>()?,
     );
 
@@ -54,6 +62,7 @@ async fn main() -> Result<()> {
         }
     };
     let pool = Arc::new(Mutex::new(pool));
+    let store: Store = Arc::new(Mutex::new(HashMap::new()));
 
     let status_pool = pool.clone();
     tokio::spawn(async move {
@@ -63,10 +72,22 @@ async fn main() -> Result<()> {
         anyhow::Ok(())
     });
 
+    let feed_store = store.clone();
+    let feed_pool = pool.clone();
+    tokio::spawn(async move {
+        FeedManager::new(feed_pool, feed_store, feed_refresh_interval)
+            .run()
+            .await?;
+        anyhow::Ok(())
+    });
+
     HttpServer::new(move || {
         let cors = Cors::permissive();
         App::new()
-            .app_data(Data::new(SharedState { db: pool.clone() }))
+            .app_data(Data::new(SharedState {
+                db: pool.clone(),
+                store: store.clone(),
+            }))
             .configure(network_config)
             .configure(articles_config)
             .configure(feed_config)

@@ -6,8 +6,10 @@ use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
 pub type Db = Arc<Mutex<Pool<Postgres>>>;
+pub type ChannelMap = HashMap<Uuid, Channel>;
+pub type Store = Arc<Mutex<ChannelMap>>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Channel {
     name: String,
     link: String,
@@ -22,27 +24,14 @@ impl Channel {
 
 pub type Items = Vec<Item>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Item {
     title: Option<String>,
     link: Option<String>,
-    description: Option<String>,
-    author: Option<String>,
 }
 
 impl Item {
-    pub fn new(
-        title: Option<String>,
-        link: Option<String>,
-        description: Option<String>,
-        author: Option<String>,
-    ) -> Self {
-        Self {
-            title,
-            link,
-            description,
-            author,
-        }
+    pub fn new(title: Option<String>, link: Option<String>) -> Self {
+        Self { title, link }
     }
 }
-pub type ChannelMap = HashMap<Uuid, Channel>;

@@ -1,98 +1,27 @@
-use std::collections::HashMap;
-
-use crate::{
-    common::{Channel as YChannel, ChannelMap, Item},
-    feed::{model::ChannelModel, schema::CreateChannelSchema},
-    SharedState,
-};
+use crate::{common::Channel, feed::schema::CreateChannelSchema, SharedState};
 use actix_web::{
     delete, error::ErrorInternalServerError, get, post, web, HttpResponse, Responder, Result,
 };
 use log::{error, info};
-use rss::Channel;
 use uuid::Uuid;
 
 #[get("{id}")]
 async fn read_one(id: web::Path<Uuid>, data: web::Data<SharedState>) -> Result<impl Responder> {
-    let db = &data.db.lock().await.clone();
-    let channel = sqlx::query_as!(
-        ChannelModel,
-        "SELECT * FROM channels WHERE id=$1",
-        id.clone()
-    )
-    .fetch_one(db)
-    .await
-    .map_err(ErrorInternalServerError)?;
+    let store = data.store.lock().await;
 
-    let mut store: ChannelMap = HashMap::new();
-    let channel_update = reqwest::get(channel.url)
-        .await
-        .map_err(ErrorInternalServerError)?
-        .bytes()
-        .await
-        .map_err(ErrorInternalServerError)?;
-    let new_channel = Channel::read_from(&channel_update[..]).map_err(ErrorInternalServerError)?;
-    let items = new_channel
-        .items
-        .iter()
-        .map(|item| {
-            Item::new(
-                item.title.to_owned(),
-                item.link.to_owned(),
-                item.description.to_owned(),
-                item.author.to_owned(),
-            )
-        })
-        .collect();
-    store.insert(
-        channel.id,
-        YChannel::new(new_channel.title, new_channel.link, items),
-    );
-    Ok(HttpResponse::Ok().json(store))
+    match store.get(&id) {
+        Some(channel) => Ok(HttpResponse::Ok().json(channel)),
+        None => Err(ErrorInternalServerError("err")),
+    }
 }
 
 #[get("")]
 async fn read_feed(data: web::Data<SharedState>) -> Result<impl Responder> {
-    let db = &data.db.lock().await.clone();
-    match sqlx::query_as!(ChannelModel, "SELECT * FROM channels")
-        .fetch_all(db)
-        .await
-    {
-        Ok(db_channels_result) => {
-            let mut store: ChannelMap = HashMap::new();
-            for channel in db_channels_result {
-                let channel_update = reqwest::get(channel.url)
-                    .await
-                    .map_err(ErrorInternalServerError)?
-                    .bytes()
-                    .await
-                    .map_err(ErrorInternalServerError)?;
-                let new_channel =
-                    Channel::read_from(&channel_update[..]).map_err(ErrorInternalServerError)?;
-                let items = new_channel
-                    .items
-                    .iter()
-                    .map(|item| {
-                        Item::new(
-                            item.title.to_owned(),
-                            item.link.to_owned(),
-                            item.description.to_owned(),
-                            item.author.to_owned(),
-                        )
-                    })
-                    .collect();
-                store.insert(
-                    channel.id,
-                    YChannel::new(new_channel.title, new_channel.link, items),
-                );
-            }
-            Ok(HttpResponse::Ok().json(store))
-        }
-        Err(err) => {
-            error!("Reading channels failed: {} ", err);
-            Err(actix_web::error::ErrorInternalServerError(err))
-        }
-    }
+    let store = data.store.lock().await;
+
+    let res: Vec<&Channel> = store.values().collect();
+
+    Ok(HttpResponse::Ok().json(res))
 }
 
 #[post("")]
